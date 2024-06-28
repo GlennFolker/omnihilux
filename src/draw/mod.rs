@@ -1,41 +1,44 @@
-pub mod pipeline;
-pub mod vertex;
-
 use std::marker::PhantomData;
 
 use bevy::{
-    asset::AssetPath,
+    core_pipeline::core_2d::Transparent2d,
     prelude::*,
-    render::{render_resource::SpecializedRenderPipelines, Render, RenderApp, RenderSet},
+    render::{render_phase::AddRenderCommand, render_resource::SpecializedRenderPipelines, Render, RenderApp, RenderSet},
 };
 use iyes_progress::prelude::*;
 
 use crate::{
     draw::{
-        pipeline::{Batch, DrawPipeline, Requests},
+        pipeline::{
+            prepare_vertices_batch, prepare_vertices_bind_group, queue_vertices, Batch, DrawBatchCommand, DrawPipeline,
+            Requests,
+        },
         vertex::{DrawLayer, Vertex},
     },
     GameState,
 };
 
+pub mod core;
+pub mod pipeline;
+pub mod vertex;
+
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, SystemSet)]
 pub enum DrawSystems {
+    ExtractDrawer,
     QueueDrawer,
     QueueVertices,
+    PrepareBatch,
+    PrepareBindGroup,
 }
 
 pub struct DrawPlugin<T: Vertex> {
-    pub asset: AssetPath<'static>,
     _marker: PhantomData<fn(T)>,
 }
 
-impl<T: Vertex> DrawPlugin<T> {
+impl<T: Vertex> Default for DrawPlugin<T> {
     #[inline]
-    pub fn new(path: impl Into<AssetPath<'static>>) -> Self {
-        Self {
-            asset: path.into(),
-            _marker: PhantomData,
-        }
+    fn default() -> Self {
+        Self { _marker: PhantomData }
     }
 }
 
@@ -44,11 +47,10 @@ impl<T: Vertex> Plugin for DrawPlugin<T> {
         #[derive(Resource)]
         struct ShaderHandle(Handle<Shader>);
 
-        let asset = self.asset.clone();
         app.add_systems(
             OnEnter(GameState::InitInternal),
             move |mut commands: Commands, server: Res<AssetServer>, mut loading: ResMut<AssetsLoading>| {
-                let handle = server.load::<Shader>(asset.clone());
+                let handle = server.load::<Shader>(T::SHADER_SOURCE);
                 loading.add(&handle);
 
                 commands.insert_resource(ShaderHandle(handle));
@@ -70,11 +72,22 @@ impl<T: Vertex> Plugin for DrawPlugin<T> {
                 .init_resource::<Requests<T>>()
                 .init_resource::<Batch<T>>()
                 .init_resource::<DrawLayer<T>>()
+                .add_render_command::<Transparent2d, DrawBatchCommand<T>>()
                 .configure_sets(
                     Render,
                     (
                         (DrawSystems::QueueDrawer, DrawSystems::QueueVertices).in_set(RenderSet::Queue),
                         DrawSystems::QueueVertices.after_ignore_deferred(DrawSystems::QueueDrawer),
+                        DrawSystems::PrepareBatch.in_set(RenderSet::Prepare),
+                        DrawSystems::PrepareBindGroup.in_set(RenderSet::PrepareBindGroups),
+                    ),
+                )
+                .add_systems(
+                    Render,
+                    (
+                        queue_vertices::<T>.in_set(DrawSystems::QueueVertices),
+                        prepare_vertices_batch::<T>.in_set(DrawSystems::PrepareBatch),
+                        prepare_vertices_bind_group::<T>.in_set(DrawSystems::PrepareBindGroup),
                     ),
                 );
         }

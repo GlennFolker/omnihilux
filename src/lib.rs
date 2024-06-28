@@ -1,9 +1,10 @@
 use bevy::{
-    diagnostic::LogDiagnosticsPlugin,
     log::{Level, LogPlugin},
     prelude::*,
 };
 use iyes_progress::ProgressPlugin;
+
+use crate::draw::{core::CVertex, DrawPlugin};
 
 pub mod draw;
 
@@ -19,14 +20,10 @@ pub fn entry() {
     let mut def = DefaultPlugins.build();
     #[cfg(debug_assertions)]
     {
-        use bevy::diagnostic::FrameTimeDiagnosticsPlugin;
-        def = def
-            .set(LogPlugin {
-                level: if cfg!(debug_assertions) { Level::DEBUG } else { Level::INFO },
-                ..default()
-            })
-            .add(FrameTimeDiagnosticsPlugin)
-            .add(LogDiagnosticsPlugin::default());
+        def = def.set(LogPlugin {
+            level: if cfg!(debug_assertions) { Level::DEBUG } else { Level::INFO },
+            ..default()
+        });
     }
 
     App::new()
@@ -36,6 +33,7 @@ pub fn entry() {
             ProgressPlugin::new(GameState::InitInternal)
                 .continue_to(GameState::Init)
                 .track_assets(),
+            DrawPlugin::<CVertex>::default(),
         ))
         .run()
 }

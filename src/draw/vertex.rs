@@ -1,14 +1,52 @@
-use std::{hash::Hash, marker::PhantomData};
+use std::{hash::Hash, marker::PhantomData, sync::Mutex};
 
 use bevy::{
+    core::Pod,
     ecs::{
         query::{QueryItem, ReadOnlyQueryData},
-        system::{ReadOnlySystemParam, SystemParamItem},
+        system::{ReadOnlySystemParam, StaticSystemParam, SystemParamItem},
     },
     prelude::*,
-    render::render_resource::{RenderPipelineDescriptor, VertexAttribute},
+    render::{
+        render_resource::{RenderPipelineDescriptor, VertexAttribute},
+        Render, RenderApp,
+    },
 };
-use bytemuck::Pod;
+
+use crate::draw::{pipeline::Requests, DrawSystems};
+
+pub struct DrawerPlugin<T: Drawer, Sys: System<In = (), Out = ()>> {
+    extract_drawer: Mutex<Option<Sys>>,
+    _marker: PhantomData<fn() -> T>,
+}
+
+impl<T: Drawer, Sys: System<In = (), Out = ()>> DrawerPlugin<T, Sys> {
+    #[inline]
+    pub const fn new(extract_drawer: Sys) -> Self {
+        Self {
+            extract_drawer: Mutex::new(Some(extract_drawer)),
+            _marker: PhantomData,
+        }
+    }
+}
+
+impl<T: Drawer, Sys: System<In = (), Out = ()>> Plugin for DrawerPlugin<T, Sys> {
+    fn build(&self, app: &mut App) {
+        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+            render_app
+                .add_systems(
+                    ExtractSchedule,
+                    self.extract_drawer
+                        .lock()
+                        .unwrap()
+                        .take()
+                        .unwrap()
+                        .in_set(DrawSystems::ExtractDrawer),
+                )
+                .add_systems(Render, queue_drawers::<T>.in_set(DrawSystems::QueueDrawer));
+        }
+    }
+}
 
 #[derive(Resource)]
 pub struct DrawLayer<T: Vertex> {
@@ -72,4 +110,17 @@ pub struct Request<T: Vertex> {
     pub vertices: Vec<T>,
     pub indices: Vec<u32>,
     pub key: T::Key,
+}
+
+pub fn queue_drawers<T: Drawer>(
+    param: StaticSystemParam<T::Param>,
+    mut query: Query<(&mut T, T::Entity)>,
+    requests: Res<Requests<T::Vertex>>,
+    mut vertices: Local<Vec<Request<T::Vertex>>>,
+) {
+    for (mut drawer, e) in &mut query {
+        drawer.draw(&param, e, &mut vertices);
+    }
+
+    requests.values.lock().unwrap().append(&mut vertices);
 }

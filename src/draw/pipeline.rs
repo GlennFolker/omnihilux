@@ -28,7 +28,7 @@ use bevy::{
     utils::FloatOrd,
 };
 
-use crate::draw::vertex::{DrawLayer, Drawer, Request, Vertex, VertexKey};
+use crate::draw::vertex::{DrawLayer, Request, Vertex, VertexKey};
 
 pub struct DrawPipeline<T: Vertex> {
     view_layout: BindGroupLayout,
@@ -149,19 +149,6 @@ pub struct BatchSection {
     end: u32,
 }
 
-pub fn queue_drawers<T: Drawer>(
-    param: SystemParamItem<T::Param>,
-    mut query: Query<(&mut T, T::Entity)>,
-    requests: Res<Requests<T::Vertex>>,
-    mut vertices: Local<Vec<Request<T::Vertex>>>,
-) {
-    for (mut drawer, e) in &mut query {
-        drawer.draw(&param, e, &mut vertices);
-    }
-
-    requests.values.lock().unwrap().append(&mut vertices);
-}
-
 pub fn queue_vertices<T: Vertex>(
     mut commands: Commands,
     mut batch: ResMut<Batch<T>>,
@@ -173,7 +160,7 @@ pub fn queue_vertices<T: Vertex>(
     draw_functions: Res<DrawFunctions<Transparent2d>>,
     mut views: Query<(&mut RenderPhase<Transparent2d>, &ExtractedView)>,
 ) {
-    let draw_function = draw_functions.read().id::<DrawFunction<T>>();
+    let draw_function = draw_functions.read().id::<DrawBatchCommand<T>>();
 
     let requests = requests.values.get_mut().unwrap();
     radsort::sort_by_key(requests, |req| req.layer);
@@ -248,21 +235,25 @@ pub fn queue_vertices<T: Vertex>(
     }
 }
 
-pub fn prepare_vertices<T: Vertex>(
-    mut commands: Commands,
+pub fn prepare_vertices_batch<T: Vertex>(
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
     mut batch: ResMut<Batch<T>>,
+) {
+    batch.vertices.write_buffer(&render_device, &render_queue);
+    batch.indices.write_buffer(&render_device, &render_queue);
+}
+
+pub fn prepare_vertices_bind_group<T: Vertex>(
+    mut commands: Commands,
+    render_device: Res<RenderDevice>,
     view_uniforms: Res<ViewUniforms>,
     pipeline: Res<DrawPipeline<T>>,
     views: Query<Entity, With<ExtractedView>>,
 ) {
     let Some(view_binding) = view_uniforms.uniforms.binding() else {
-        return;
+        return
     };
-
-    batch.vertices.write_buffer(&render_device, &render_queue);
-    batch.indices.write_buffer(&render_device, &render_queue);
 
     for view in &views {
         commands.entity(view).insert(BatchBindGroup::<T> {
@@ -276,7 +267,7 @@ pub fn prepare_vertices<T: Vertex>(
     }
 }
 
-type DrawFunction<T> = (SetItemPipeline, SetBatchBindGroup<T, 0>);
+pub type DrawBatchCommand<T> = (SetItemPipeline, SetBatchBindGroup<T, 0>);
 
 pub struct SetBatchBindGroup<T: Vertex, const I: usize> {
     _marker: PhantomData<fn(T)>,
