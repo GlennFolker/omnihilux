@@ -1,0 +1,28 @@
+[package]
+name = "omnihilux"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+bytemuck = { version = "1", features = ["derive", "align_offset"] }
+iyes_progress = { version = "0.11", features = ["assets"] }
+mimalloc = "*"
+radsort = "0.1"
+
+[dependencies.bevy]
+version = "0.13"
+default-features = false
+features = [
+    "bevy_asset",
+    "bevy_core_pipeline",
+    "bevy_render",
+    "bevy_winit",
+    "multi-threaded",
+
+    "png",
+    "wayland",
+    "x11",
+]
+
+[features]
+dev = ["bevy/dynamic_linking"]
