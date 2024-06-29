@@ -28,7 +28,10 @@ use bevy::{
     utils::FloatOrd,
 };
 
-use crate::shape::vertex::{DrawLayer, Request, Vertex, VertexKey};
+use crate::{
+    shape::vertex::{DrawLayer, Request, Vertex, VertexKey},
+    util::FloatExt,
+};
 
 pub struct ShapePipeline<T: Vertex> {
     view_layout: BindGroupLayout,
@@ -162,6 +165,8 @@ pub fn queue_vertices<T: Vertex>(
     draw_functions: Res<DrawFunctions<Transparent2d>>,
     mut views: Query<(&mut RenderPhase<Transparent2d>, &ExtractedView)>,
 ) {
+    let mut layer = layer.layer;
+
     let draw_function = draw_functions.read().id::<DrawShapes<T>>();
     let msaa = msaa.samples().trailing_zeros() as u8;
 
@@ -175,6 +180,15 @@ pub fn queue_vertices<T: Vertex>(
     vertices.clear();
     indices.clear();
 
+    let mut add = |layer: &mut f32, start: u32, end: u32, hdr: bool, key: T::Key| Transparent2d {
+        sort_key: FloatOrd(layer.next_swap()),
+        entity: commands.spawn(BatchSection { start, end }).id(),
+        pipeline: pipelines.specialize(&pipeline_cache, &draw_pipeline, (ShapeCommonKey { hdr, msaa }, key)),
+        draw_function,
+        batch_range: 0..1,
+        dynamic_offset: None,
+    };
+
     let mut prev = None;
     for mut request in requests.drain(..) {
         let base_offset = indices.len() as u32;
@@ -185,27 +199,13 @@ pub fn queue_vertices<T: Vertex>(
             Some((prev_offset, prev_key)) => {
                 if &prev_key != &new_key {
                     for (mut phase, view) in &mut views {
-                        phase.add(Transparent2d {
-                            sort_key: FloatOrd(layer.layer),
-                            entity: commands
-                                .spawn(BatchSection {
-                                    start: prev_offset,
-                                    end: base_offset,
-                                })
-                                .id(),
-                            pipeline: pipelines.specialize(
-                                &pipeline_cache,
-                                &draw_pipeline,
-                                (ShapeCommonKey { hdr: view.hdr, msaa }, prev_key.clone()),
-                            ),
-                            draw_function,
-                            batch_range: 0..1,
-                            dynamic_offset: None,
-                        });
+                        phase.add(add(&mut layer, prev_offset, base_offset, view.hdr, prev_key.clone()));
                     }
-                }
 
-                prev = Some((prev_offset, new_key));
+                    prev = Some((base_offset, new_key));
+                } else {
+                    prev = Some((prev_offset, new_key));
+                }
             }
         }
 
@@ -216,25 +216,9 @@ pub fn queue_vertices<T: Vertex>(
             .extend(request.indices.into_iter().map(|i| base_index + i));
     }
 
-    if let Some((prev_index, prev_key)) = prev.take() {
+    if let Some((prev_offset, prev_key)) = prev.take() {
         for (mut phase, view) in &mut views {
-            phase.add(Transparent2d {
-                sort_key: FloatOrd(layer.layer),
-                entity: commands
-                    .spawn(BatchSection {
-                        start: prev_index,
-                        end: indices.len() as u32,
-                    })
-                    .id(),
-                pipeline: pipelines.specialize(
-                    &pipeline_cache,
-                    &draw_pipeline,
-                    (ShapeCommonKey { hdr: view.hdr, msaa }, prev_key.clone()),
-                ),
-                draw_function,
-                batch_range: 0..1,
-                dynamic_offset: None,
-            });
+            phase.add(add(&mut layer, prev_offset, indices.len() as u32, view.hdr, prev_key.clone()));
         }
     }
 }

@@ -1,8 +1,11 @@
+use std::hash::Hash;
+
 use bevy::{
     core::{Pod, Zeroable},
     prelude::*,
     render::render_resource::{
-        BlendState, BufferAddress, ColorWrites, RenderPipelineDescriptor, VertexAttribute, VertexFormat,
+        BlendComponent, BlendFactor, BlendOperation, BlendState, BufferAddress, ColorWrites, RenderPipelineDescriptor,
+        VertexAttribute, VertexFormat,
     },
 };
 
@@ -13,6 +16,16 @@ use crate::shape::vertex::{Vertex, VertexKey};
 pub struct DrawVertex {
     pub position: [f32; 2],
     pub color: [f32; 4],
+}
+
+impl DrawVertex {
+    #[inline]
+    pub fn new(x: f32, y: f32, color: Color) -> Self {
+        Self {
+            position: [x, y],
+            color: color.as_rgba_f32(),
+        }
+    }
 }
 
 impl Vertex for DrawVertex {
@@ -39,6 +52,23 @@ impl Vertex for DrawVertex {
 pub struct DrawKey {
     pub mask: ColorWrites,
     pub blend: Option<BlendState>,
+}
+
+impl DrawKey {
+    #[inline]
+    pub const fn additive() -> Self {
+        Self {
+            mask: ColorWrites::ALL,
+            blend: Some(BlendState {
+                color: BlendComponent {
+                    src_factor: BlendFactor::SrcAlpha,
+                    dst_factor: BlendFactor::One,
+                    operation: BlendOperation::Add,
+                },
+                alpha: BlendComponent::OVER,
+            }),
+        }
+    }
 }
 
 impl Default for DrawKey {

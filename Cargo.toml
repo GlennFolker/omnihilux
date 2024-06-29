@@ -2,9 +2,13 @@
 name = "omnihilux"
 version = "0.1.0"
 edition = "2021"
+rust-version = "1.81"
 
 [dependencies]
 bytemuck = "1"
+fastapprox = "0.3"
+fastrand = "2"
+float_next_after = "1"
 iyes_progress = { version = "0.11", features = ["assets"] }
 mimalloc = "*"
 radsort = "0.1"
@@ -25,4 +29,4 @@ features = [
 ]
 
 [features]
-dev = ["bevy/dynamic_linking"]
+dev = ["bevy/dynamic_linking", "bevy/asset_processor", "bevy/file_watcher"]

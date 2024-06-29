@@ -1,11 +1,8 @@
-use std::{hash::Hash, marker::PhantomData, sync::Mutex};
+use std::{hash::Hash, marker::PhantomData};
 
 use bevy::{
     core::Pod,
-    ecs::{
-        query::{QueryItem, ReadOnlyQueryData},
-        system::{ReadOnlySystemParam, StaticSystemParam, SystemParamItem},
-    },
+    ecs::system::{StaticSystemParam, SystemParam, SystemParamItem},
     prelude::*,
     render::{
         render_resource::{RenderPipelineDescriptor, VertexAttribute},
@@ -15,34 +12,22 @@ use bevy::{
 
 use crate::shape::{pipeline::Requests, ShapeSystems};
 
-pub struct ShaperPlugin<T: Shaper, Sys: System<In = (), Out = ()>> {
-    extract_drawer: Mutex<Option<Sys>>,
+pub struct ShaperPlugin<T: Shaper> {
     _marker: PhantomData<fn() -> T>,
 }
 
-impl<T: Shaper, Sys: System<In = (), Out = ()>> ShaperPlugin<T, Sys> {
+impl<T: Shaper> Default for ShaperPlugin<T> {
     #[inline]
-    pub fn new<Marker>(extract_drawer: impl IntoSystem<(), (), Marker, System = Sys>) -> Self {
-        Self {
-            extract_drawer: Mutex::new(Some(IntoSystem::into_system(extract_drawer))),
-            _marker: PhantomData,
-        }
+    fn default() -> Self {
+        Self { _marker: PhantomData }
     }
 }
 
-impl<T: Shaper, Sys: System<In = (), Out = ()>> Plugin for ShaperPlugin<T, Sys> {
+impl<T: Shaper> Plugin for ShaperPlugin<T> {
     fn build(&self, app: &mut App) {
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
-                .add_systems(
-                    ExtractSchedule,
-                    self.extract_drawer
-                        .lock()
-                        .unwrap()
-                        .take()
-                        .unwrap()
-                        .in_set(ShapeSystems::ExtractShaper),
-                )
+                .add_systems(ExtractSchedule, T::extract.in_set(ShapeSystems::ExtractShaper))
                 .add_systems(Render, queue_drawers::<T>.in_set(ShapeSystems::QueueShaper));
         }
     }
@@ -93,16 +78,13 @@ pub trait VertexKey: Send + Sync + Clone + Eq + PartialEq + Hash {
 }
 
 pub trait Shaper: Component {
-    type Param: ReadOnlySystemParam;
-    type Entity: ReadOnlyQueryData;
+    type ExtractParam: SystemParam + 'static;
+    type DrawParam: SystemParam + 'static;
     type Vertex: Vertex;
 
-    fn draw(
-        &mut self,
-        param: &SystemParamItem<Self::Param>,
-        entity: QueryItem<Self::Entity>,
-        out: &mut Vec<Request<Self::Vertex>>,
-    );
+    fn extract(param: StaticSystemParam<Self::ExtractParam>);
+
+    fn draw(&mut self, param: &mut SystemParamItem<Self::DrawParam>, out: &mut Vec<Request<Self::Vertex>>);
 }
 
 pub struct Request<T: Vertex> {
@@ -113,13 +95,14 @@ pub struct Request<T: Vertex> {
 }
 
 pub fn queue_drawers<T: Shaper>(
-    param: StaticSystemParam<T::Param>,
-    mut query: Query<(&mut T, T::Entity)>,
+    mut query: Query<&mut T>,
+    param: StaticSystemParam<T::DrawParam>,
     requests: Res<Requests<T::Vertex>>,
     mut vertices: Local<Vec<Request<T::Vertex>>>,
 ) {
-    for (mut drawer, e) in &mut query {
-        drawer.draw(&param, e, &mut vertices);
+    let mut param = param.into_inner();
+    for mut drawer in &mut query {
+        drawer.draw(&mut param, &mut vertices);
     }
 
     requests.values.lock().unwrap().append(&mut vertices);
