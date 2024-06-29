@@ -6,13 +6,16 @@ use bevy::{
 };
 use iyes_progress::ProgressPlugin;
 
-use crate::draw::{
-    core::{CKey, CVertex},
-    vertex::{Drawer, DrawerPlugin, Request},
-    DrawPlugin,
+use crate::{
+    draw::vertex::{DrawKey, DrawVertex},
+    shape::{
+        vertex::{Request, Shaper, ShaperPlugin},
+        ShapePlugin,
+    },
 };
 
 pub mod draw;
+pub mod shape;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, States)]
 pub enum GameState {
@@ -39,8 +42,8 @@ pub fn entry() {
             ProgressPlugin::new(GameState::InitInternal)
                 .continue_to(GameState::Init)
                 .track_assets(),
-            DrawPlugin::<CVertex>::default(),
-            DrawerPlugin::<CDraw, _>::new(extract),
+            ShapePlugin::<DrawVertex>::default(),
+            ShaperPlugin::<CDraw, _>::new(extract),
         ))
         .add_systems(OnEnter(GameState::Init), init)
         .run()
@@ -48,10 +51,10 @@ pub fn entry() {
 
 #[derive(Component, Copy, Clone)]
 struct CDraw;
-impl Drawer for CDraw {
+impl Shaper for CDraw {
     type Param = ();
     type Entity = ();
-    type Vertex = CVertex;
+    type Vertex = DrawVertex;
 
     fn draw(
         &mut self,
@@ -63,19 +66,19 @@ impl Drawer for CDraw {
             Request {
                 layer: 0.0,
                 vertices: vec![
-                    CVertex {
+                    DrawVertex {
                         position: [-150.0, -150.0],
                         color: [1.0, 0.0, 0.0, 0.5],
                     },
-                    CVertex {
+                    DrawVertex {
                         position: [50.0, -150.0],
                         color: [0.0, 1.0, 0.0, 0.5],
                     },
-                    CVertex {
+                    DrawVertex {
                         position: [50.0, 50.0],
                         color: [0.0, 0.0, 1.0, 0.5],
                     },
-                    CVertex {
+                    DrawVertex {
                         position: [-150.0, 50.0],
                         color: [1.0, 1.0, 1.0, 0.5],
                     },
@@ -86,25 +89,25 @@ impl Drawer for CDraw {
             Request {
                 layer: 0.0,
                 vertices: vec![
-                    CVertex {
+                    DrawVertex {
                         position: [-50.0, -50.0],
                         color: [1.0, 0.0, 0.0, 1.0],
                     },
-                    CVertex {
+                    DrawVertex {
                         position: [150.0, -50.0],
                         color: [0.0, 1.0, 0.0, 0.0],
                     },
-                    CVertex {
+                    DrawVertex {
                         position: [150.0, 150.0],
                         color: [0.0, 0.0, 1.0, 1.0],
                     },
-                    CVertex {
+                    DrawVertex {
                         position: [-50.0, 150.0],
                         color: [0.0, 0.0, 0.0, 0.0],
                     },
                 ],
                 indices: vec![0, 1, 2, 2, 3, 0],
-                key: CKey {
+                key: DrawKey {
                     blend: Some(BlendState {
                         color: BlendComponent {
                             src_factor: BlendFactor::SrcAlpha,

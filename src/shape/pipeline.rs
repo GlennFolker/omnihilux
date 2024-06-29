@@ -28,15 +28,15 @@ use bevy::{
     utils::FloatOrd,
 };
 
-use crate::draw::vertex::{DrawLayer, Request, Vertex, VertexKey};
+use crate::shape::vertex::{DrawLayer, Request, Vertex, VertexKey};
 
-pub struct DrawPipeline<T: Vertex> {
+pub struct ShapePipeline<T: Vertex> {
     view_layout: BindGroupLayout,
     _marker: PhantomData<fn(T)>,
 }
 
-impl<T: Vertex> Resource for DrawPipeline<T> {}
-impl<T: Vertex> FromWorld for DrawPipeline<T> {
+impl<T: Vertex> Resource for ShapePipeline<T> {}
+impl<T: Vertex> FromWorld for ShapePipeline<T> {
     fn from_world(world: &mut World) -> Self {
         let device = SystemState::<Res<RenderDevice>>::new(world).get_mut(world);
         Self {
@@ -49,13 +49,13 @@ impl<T: Vertex> FromWorld for DrawPipeline<T> {
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]
-pub struct DrawKey {
-    hdr: bool,
-    msaa: u8,
+pub struct ShapeCommonKey {
+    pub hdr: bool,
+    pub msaa: u8,
 }
 
-impl<T: Vertex> SpecializedRenderPipeline for DrawPipeline<T> {
-    type Key = (DrawKey, T::Key);
+impl<T: Vertex> SpecializedRenderPipeline for ShapePipeline<T> {
+    type Key = (ShapeCommonKey, T::Key);
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
         let (common, key) = key;
@@ -156,13 +156,13 @@ pub fn queue_vertices<T: Vertex>(
     mut batch: ResMut<Batch<T>>,
     layer: Res<DrawLayer<T>>,
     mut requests: ResMut<Requests<T>>,
-    draw_pipeline: Res<DrawPipeline<T>>,
-    mut pipelines: ResMut<SpecializedRenderPipelines<DrawPipeline<T>>>,
+    draw_pipeline: Res<ShapePipeline<T>>,
+    mut pipelines: ResMut<SpecializedRenderPipelines<ShapePipeline<T>>>,
     pipeline_cache: Res<PipelineCache>,
     draw_functions: Res<DrawFunctions<Transparent2d>>,
     mut views: Query<(&mut RenderPhase<Transparent2d>, &ExtractedView)>,
 ) {
-    let draw_function = draw_functions.read().id::<DrawBatchCommand<T>>();
+    let draw_function = draw_functions.read().id::<DrawShapes<T>>();
     let msaa = msaa.samples().trailing_zeros() as u8;
 
     let requests = requests.values.get_mut().unwrap();
@@ -196,7 +196,7 @@ pub fn queue_vertices<T: Vertex>(
                             pipeline: pipelines.specialize(
                                 &pipeline_cache,
                                 &draw_pipeline,
-                                (DrawKey { hdr: view.hdr, msaa }, prev_key.clone()),
+                                (ShapeCommonKey { hdr: view.hdr, msaa }, prev_key.clone()),
                             ),
                             draw_function,
                             batch_range: 0..1,
@@ -229,7 +229,7 @@ pub fn queue_vertices<T: Vertex>(
                 pipeline: pipelines.specialize(
                     &pipeline_cache,
                     &draw_pipeline,
-                    (DrawKey { hdr: view.hdr, msaa }, prev_key.clone()),
+                    (ShapeCommonKey { hdr: view.hdr, msaa }, prev_key.clone()),
                 ),
                 draw_function,
                 batch_range: 0..1,
@@ -252,7 +252,7 @@ pub fn prepare_vertices_bind_group<T: Vertex>(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
     view_uniforms: Res<ViewUniforms>,
-    pipeline: Res<DrawPipeline<T>>,
+    pipeline: Res<ShapePipeline<T>>,
     views: Query<Entity, With<ExtractedView>>,
 ) {
     let Some(view_binding) = view_uniforms.uniforms.binding() else {
@@ -271,7 +271,7 @@ pub fn prepare_vertices_bind_group<T: Vertex>(
     }
 }
 
-pub type DrawBatchCommand<T> = (SetItemPipeline, SetBatchBindGroup<T, 0>, DrawBatch<T>);
+pub type DrawShapes<T> = (SetItemPipeline, SetBatchBindGroup<T, 0>, DrawBatch<T>);
 
 pub struct SetBatchBindGroup<T: Vertex, const I: usize> {
     _marker: PhantomData<fn(T)>,
