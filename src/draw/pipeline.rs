@@ -51,6 +51,7 @@ impl<T: Vertex> FromWorld for DrawPipeline<T> {
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]
 pub struct DrawKey {
     hdr: bool,
+    msaa: u8,
 }
 
 impl<T: Vertex> SpecializedRenderPipeline for DrawPipeline<T> {
@@ -84,7 +85,7 @@ impl<T: Vertex> SpecializedRenderPipeline for DrawPipeline<T> {
             },
             depth_stencil: None,
             multisample: MultisampleState {
-                count: 1,
+                count: 1 << common.msaa,
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
@@ -151,6 +152,7 @@ pub struct BatchSection {
 
 pub fn queue_vertices<T: Vertex>(
     mut commands: Commands,
+    msaa: Res<Msaa>,
     mut batch: ResMut<Batch<T>>,
     layer: Res<DrawLayer<T>>,
     mut requests: ResMut<Requests<T>>,
@@ -161,6 +163,7 @@ pub fn queue_vertices<T: Vertex>(
     mut views: Query<(&mut RenderPhase<Transparent2d>, &ExtractedView)>,
 ) {
     let draw_function = draw_functions.read().id::<DrawBatchCommand<T>>();
+    let msaa = msaa.samples().trailing_zeros() as u8;
 
     let requests = requests.values.get_mut().unwrap();
     radsort::sort_by_key(requests, |req| req.layer);
@@ -193,7 +196,7 @@ pub fn queue_vertices<T: Vertex>(
                             pipeline: pipelines.specialize(
                                 &pipeline_cache,
                                 &draw_pipeline,
-                                (DrawKey { hdr: view.hdr }, prev_key.clone()),
+                                (DrawKey { hdr: view.hdr, msaa }, prev_key.clone()),
                             ),
                             draw_function,
                             batch_range: 0..0,
@@ -225,10 +228,10 @@ pub fn queue_vertices<T: Vertex>(
                 pipeline: pipelines.specialize(
                     &pipeline_cache,
                     &draw_pipeline,
-                    (DrawKey { hdr: view.hdr }, prev_key.clone()),
+                    (DrawKey { hdr: view.hdr, msaa }, prev_key.clone()),
                 ),
                 draw_function,
-                batch_range: 0..0,
+                batch_range: 0..1,
                 dynamic_offset: None,
             });
         }
@@ -267,7 +270,7 @@ pub fn prepare_vertices_bind_group<T: Vertex>(
     }
 }
 
-pub type DrawBatchCommand<T> = (SetItemPipeline, SetBatchBindGroup<T, 0>);
+pub type DrawBatchCommand<T> = (SetItemPipeline, SetBatchBindGroup<T, 0>, DrawBatch<T>);
 
 pub struct SetBatchBindGroup<T: Vertex, const I: usize> {
     _marker: PhantomData<fn(T)>,

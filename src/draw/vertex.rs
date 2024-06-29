@@ -22,9 +22,9 @@ pub struct DrawerPlugin<T: Drawer, Sys: System<In = (), Out = ()>> {
 
 impl<T: Drawer, Sys: System<In = (), Out = ()>> DrawerPlugin<T, Sys> {
     #[inline]
-    pub const fn new(extract_drawer: Sys) -> Self {
+    pub fn new<Marker>(extract_drawer: impl IntoSystem<(), (), Marker, System = Sys>) -> Self {
         Self {
-            extract_drawer: Mutex::new(Some(extract_drawer)),
+            extract_drawer: Mutex::new(Some(IntoSystem::into_system(extract_drawer))),
             _marker: PhantomData,
         }
     }

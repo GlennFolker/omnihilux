@@ -1,10 +1,8 @@
 use bevy::{
-    asset::Handle,
     core::{Pod, Zeroable},
-    prelude::Shader,
-    render::render_resource::{VertexAttribute, VertexFormat},
+    prelude::*,
+    render::render_resource::{BufferAddress, RenderPipelineDescriptor, VertexAttribute, VertexFormat},
 };
-use bevy::render::render_resource::RenderPipelineDescriptor;
 
 use crate::draw::vertex::{Vertex, VertexKey};
 
@@ -12,6 +10,7 @@ use crate::draw::vertex::{Vertex, VertexKey};
 #[derive(Pod, Zeroable, Copy, Clone)]
 pub struct CVertex {
     pub position: [f32; 2],
+    pub color: [f32; 4],
 }
 
 impl Vertex for CVertex {
@@ -20,11 +19,18 @@ impl Vertex for CVertex {
     const SHADER: Handle<Shader> = Handle::weak_from_u128(213808777024918471717406675324426180314);
     const SHADER_SOURCE: &'static str = "shaders/draw.wgsl";
 
-    const LAYOUT: &'static [VertexAttribute] = &[VertexAttribute {
-        format: VertexFormat::Float32x2,
-        offset: 0,
-        shader_location: 0,
-    }];
+    const LAYOUT: &'static [VertexAttribute] = &[
+        VertexAttribute {
+            format: VertexFormat::Float32x2,
+            offset: 0,
+            shader_location: 0,
+        },
+        VertexAttribute {
+            format: VertexFormat::Float32x4,
+            offset: size_of::<[f32; 2]>() as BufferAddress,
+            shader_location: 1,
+        },
+    ];
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]
