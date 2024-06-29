@@ -19,7 +19,7 @@ impl Vertex for DrawVertex {
     type Key = DrawKey;
 
     const SHADER: Handle<Shader> = Handle::weak_from_u128(213808777024918471717406675324426180314);
-    const SHADER_SOURCE: &'static str = "shaders/shape.wgsl";
+    const SHADER_SOURCE: &'static str = "shaders/draw.wgsl";
 
     const LAYOUT: &'static [VertexAttribute] = &[
         VertexAttribute {
