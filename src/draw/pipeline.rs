@@ -177,20 +177,20 @@ pub fn queue_vertices<T: Vertex>(
 
     let mut prev = None;
     for mut request in requests.drain(..) {
-        let base_index = indices.len() as u32;
+        let base_offset = indices.len() as u32;
 
         let new_key = request.key;
         match prev.take() {
-            None => prev = Some((base_index, new_key)),
-            Some((prev_index, prev_key)) => {
+            None => prev = Some((base_offset, new_key)),
+            Some((prev_offset, prev_key)) => {
                 if &prev_key != &new_key {
                     for (mut phase, view) in &mut views {
                         phase.add(Transparent2d {
                             sort_key: FloatOrd(layer.layer),
                             entity: commands
                                 .spawn(BatchSection {
-                                    start: prev_index,
-                                    end: base_index,
+                                    start: prev_offset,
+                                    end: base_offset,
                                 })
                                 .id(),
                             pipeline: pipelines.specialize(
@@ -199,16 +199,17 @@ pub fn queue_vertices<T: Vertex>(
                                 (DrawKey { hdr: view.hdr, msaa }, prev_key.clone()),
                             ),
                             draw_function,
-                            batch_range: 0..0,
+                            batch_range: 0..1,
                             dynamic_offset: None,
                         });
                     }
-                } else {
-                    prev = Some((prev_index, new_key));
                 }
+
+                prev = Some((prev_offset, new_key));
             }
         }
 
+        let base_index = vertices.len() as u32;
         vertices.values_mut().append(&mut request.vertices);
         indices
             .values_mut()

@@ -2,15 +2,15 @@ use bevy::{
     ecs::{query::QueryItem, system::SystemParamItem},
     log::{Level, LogPlugin},
     prelude::*,
+    render::render_resource::{BlendComponent, BlendFactor, BlendOperation, BlendState},
 };
 use iyes_progress::ProgressPlugin;
 
 use crate::draw::{
     core::{CKey, CVertex},
-    vertex::{Drawer, Request},
+    vertex::{Drawer, DrawerPlugin, Request},
     DrawPlugin,
 };
-use crate::draw::vertex::DrawerPlugin;
 
 pub mod draw;
 
@@ -59,29 +59,64 @@ impl Drawer for CDraw {
         _: QueryItem<Self::Entity>,
         requests: &mut Vec<Request<Self::Vertex>>,
     ) {
-        requests.push(Request {
-            layer: 0.0,
-            vertices: vec![
-                CVertex {
-                    position: [-100.0, -100.0],
-                    color: [1.0, 0.0, 0.0, 1.0],
+        requests.extend([
+            Request {
+                layer: 0.0,
+                vertices: vec![
+                    CVertex {
+                        position: [-150.0, -150.0],
+                        color: [1.0, 0.0, 0.0, 0.5],
+                    },
+                    CVertex {
+                        position: [50.0, -150.0],
+                        color: [0.0, 1.0, 0.0, 0.5],
+                    },
+                    CVertex {
+                        position: [50.0, 50.0],
+                        color: [0.0, 0.0, 1.0, 0.5],
+                    },
+                    CVertex {
+                        position: [-150.0, 50.0],
+                        color: [1.0, 1.0, 1.0, 0.5],
+                    },
+                ],
+                indices: vec![0, 1, 2, 2, 3, 0],
+                key: default(),
+            },
+            Request {
+                layer: 0.0,
+                vertices: vec![
+                    CVertex {
+                        position: [-50.0, -50.0],
+                        color: [1.0, 0.0, 0.0, 1.0],
+                    },
+                    CVertex {
+                        position: [150.0, -50.0],
+                        color: [0.0, 1.0, 0.0, 0.0],
+                    },
+                    CVertex {
+                        position: [150.0, 150.0],
+                        color: [0.0, 0.0, 1.0, 1.0],
+                    },
+                    CVertex {
+                        position: [-50.0, 150.0],
+                        color: [0.0, 0.0, 0.0, 0.0],
+                    },
+                ],
+                indices: vec![0, 1, 2, 2, 3, 0],
+                key: CKey {
+                    blend: Some(BlendState {
+                        color: BlendComponent {
+                            src_factor: BlendFactor::SrcAlpha,
+                            dst_factor: BlendFactor::One,
+                            operation: BlendOperation::Add,
+                        },
+                        alpha: BlendComponent::OVER,
+                    }),
+                    ..default()
                 },
-                CVertex {
-                    position: [100.0, -100.0],
-                    color: [0.0, 1.0, 0.0, 1.0],
-                },
-                CVertex {
-                    position: [100.0, 100.0],
-                    color: [0.0, 0.0, 1.0, 1.0],
-                },
-                CVertex {
-                    position: [-100.0, 100.0],
-                    color: [1.0, 1.0, 1.0, 1.0],
-                },
-            ],
-            indices: vec![0, 1, 2, 2, 3, 0],
-            key: CKey::Standard,
-        });
+            },
+        ]);
     }
 }
 

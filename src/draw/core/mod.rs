@@ -1,7 +1,9 @@
 use bevy::{
     core::{Pod, Zeroable},
     prelude::*,
-    render::render_resource::{BufferAddress, RenderPipelineDescriptor, VertexAttribute, VertexFormat},
+    render::render_resource::{
+        BlendState, BufferAddress, ColorWrites, RenderPipelineDescriptor, VertexAttribute, VertexFormat,
+    },
 };
 
 use crate::draw::vertex::{Vertex, VertexKey};
@@ -34,10 +36,28 @@ impl Vertex for CVertex {
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]
-pub enum CKey {
-    Standard,
+pub struct CKey {
+    pub mask: ColorWrites,
+    pub blend: Option<BlendState>,
+}
+
+impl Default for CKey {
+    #[inline]
+    fn default() -> Self {
+        Self {
+            mask: ColorWrites::ALL,
+            blend: Some(BlendState::ALPHA_BLENDING),
+        }
+    }
 }
 
 impl VertexKey for CKey {
-    fn specialize(self, _: &mut RenderPipelineDescriptor) {}
+    fn specialize(self, desc: &mut RenderPipelineDescriptor) {
+        for target in &mut desc.fragment.as_mut().unwrap().targets {
+            if let Some(target) = target {
+                target.write_mask = self.mask;
+                target.blend = self.blend;
+            }
+        }
+    }
 }
