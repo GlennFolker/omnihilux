@@ -10,12 +10,15 @@ use fastrand::Rng;
 use float_next_after::NextAfter;
 
 use crate::{
-    draw::{vertex::DrawVertex, Drawer, LineState, TriState},
+    draw::{basic::TriState, line::LineState, vertex::DrawVertex, Drawer},
     shape::vertex::{Request, Shaper},
     util::{
-        curve, sin, vec_angle, FloatExt,
-        Interp::{Linear, PowIn},
-        Interpolation, RngExt, Vec3Ext,
+        math::{
+            curve, sin, vec_angle,
+            Interp::{Linear, PowIn},
+            Interpolation,
+        },
+        FloatExt, RngExt, Vec3Ext,
     },
 };
 
@@ -123,14 +126,18 @@ impl Shaper for BlobShaper {
             );
         }
 
+        draw.line_circle(
+            LineState::default()
+                .stroke(0.09 * r)
+                .color_edge(cell_color.with_a(0.0), border_color),
+            layer.next_swap(),
+            pos.x,
+            pos.y,
+            r,
+            100,
+        );
+
         /*
-        float r = radius();
-        Draw.color(cellColor, cellColor.a * 0.15f);
-        Fill.light(pos.x, pos.y, Lines.circleVertices(r), r, Tmp.c1.set(eyeColor).a(0f), Tmp.c2.set(cellColor).mulA(0.2f));
-
-        Lines.stroke(0.09f * r, borderColor);
-        Lines.circle(pos.x, pos.y, r);
-
         float focus = lookRange * r;
         Tmp.v1.set(look).sub(pos).clampLength(0f, focus);
         float len = Interp.pow2Out.apply(Tmp.v1.len() / focus) * r * 3f / 4f;

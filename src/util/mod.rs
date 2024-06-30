@@ -1,8 +1,10 @@
-use std::{f32::consts::PI, mem};
+use std::mem;
 
 use bevy::prelude::*;
 use fastrand::Rng;
 use float_next_after::NextAfter;
+
+pub mod math;
 
 pub trait RngExt {
     fn range_f32(&mut self, from: f32, to: f32) -> f32;
@@ -22,6 +24,27 @@ impl RngExt for Rng {
     }
 }
 
+pub trait VecExt: Sized {
+    #[inline]
+    fn set_length(self, length: f32) -> Self {
+        self.set_length_squared(length * length)
+    }
+
+    fn set_length_squared(self, length_squared: f32) -> Self;
+}
+
+impl VecExt for Vec2 {
+    #[inline]
+    fn set_length_squared(self, length_squared: f32) -> Self {
+        let old = self.length_squared();
+        if old == 0.0 || old == length_squared {
+            self
+        } else {
+            self * fastapprox::faster::pow(length_squared / old, 0.5)
+        }
+    }
+}
+
 pub trait Vec3Ext {
     fn separate_z(self) -> (Vec2, f32);
 }
@@ -34,10 +57,16 @@ impl Vec3Ext for Vec3 {
 }
 
 pub trait FloatExt {
+    const PI: Self;
+    const PI2: Self;
+
     fn next_swap(&mut self) -> Self;
 }
 
 impl FloatExt for f32 {
+    const PI: Self = std::f32::consts::PI;
+    const PI2: Self = Self::PI * 2.0;
+
     #[inline]
     fn next_swap(&mut self) -> Self {
         let next = self.next_after(Self::INFINITY);
@@ -46,72 +75,12 @@ impl FloatExt for f32 {
 }
 
 impl FloatExt for f64 {
+    const PI: Self = std::f64::consts::PI;
+    const PI2: Self = Self::PI * 2.0;
+
     #[inline]
     fn next_swap(&mut self) -> Self {
         let next = self.next_after(Self::INFINITY);
         mem::replace(self, next)
-    }
-}
-
-pub trait Interpolation<T, P> {
-    fn interp(self, from: T, to: T, progress: P) -> T;
-}
-
-#[derive(Copy, Clone)]
-pub enum Interp {
-    Linear,
-    PowIn(u32),
-}
-
-impl Interpolation<f32, f32> for Interp {
-    #[inline]
-    fn interp(self, from: f32, to: f32, progress: f32) -> f32 {
-        let progress = match self {
-            Self::Linear => progress,
-            Self::PowIn(pow) => fastapprox::faster::pow(progress, pow as f32),
-        };
-        from + (to - from) * progress
-    }
-}
-
-impl Interpolation<Color, f32> for Interp {
-    #[inline]
-    fn interp(self, from: Color, to: Color, progress: f32) -> Color {
-        let [fr, fg, fb, fa] = from.as_linear_rgba_f32();
-        let [tr, tg, tb, ta] = to.as_linear_rgba_f32();
-        Color::RgbaLinear {
-            red: self.interp(fr, tr, progress),
-            green: self.interp(fg, tg, progress),
-            blue: self.interp(fb, tb, progress),
-            alpha: self.interp(fa, ta, progress),
-        }
-    }
-}
-
-#[inline]
-pub fn curve(f: f32, from: f32, to: f32) -> f32 {
-    if f < from {
-        0.0
-    } else if f > to {
-        1.0
-    } else {
-        (f - from) / (to - from)
-    }
-}
-
-#[inline]
-pub fn sin(rad: f32, scl: f32, mag: f32) -> f32 {
-    let rad = (rad * scl) % (PI * 2.0);
-    fastapprox::faster::sinfull(rad) * mag
-}
-
-#[inline]
-pub fn vec_angle(angle: f32, x: f32, y: f32) -> Vec2 {
-    let angle = angle % (PI * 2.0);
-    let (cos, sin) = (fastapprox::faster::cosfull(angle), fastapprox::faster::sinfull(angle));
-
-    Vec2 {
-        x: x * cos - y * sin,
-        y: x * sin + y * cos,
     }
 }
