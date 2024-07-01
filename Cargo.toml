@@ -10,7 +10,6 @@ fastapprox = "0.3"
 fastrand = "2"
 float_next_after = "1"
 iyes_progress = { version = "0.11", features = ["assets"] }
-mimalloc = "*"
 radsort = "0.1"
 
 [dependencies.bevy]
@@ -26,7 +25,11 @@ features = [
     "png",
     "wayland",
     "x11",
+    "webgpu",
 ]
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+mimalloc = "*"
 
 [features]
 dev = ["bevy/dynamic_linking", "bevy/asset_processor", "bevy/file_watcher"]
