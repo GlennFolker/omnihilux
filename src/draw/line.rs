@@ -3,7 +3,7 @@ use bevy::prelude::*;
 use crate::{
     draw::{vertex::DrawKey, Drawer},
     util::{
-        math::{equal, sin, vec_angle, Interp::Linear, Interpolation},
+        math::{equal, sin, sqrt, vec_angle, Interp::Linear, Interpolation},
         FloatExt, VecExt,
     },
 };
@@ -15,7 +15,7 @@ impl<'a> Drawer<'a> {
         let hs = stroke / 2.0;
         let mut dx = x_to - x_from;
         let mut dy = y_to - y_from;
-        let len = (dx * dx + dy * dy).sqrt();
+        let len = sqrt(dx * dx + dy * dy);
 
         dx = dx / len * hs;
         dy = dy / len * hs;
@@ -91,6 +91,8 @@ impl<'t, 'a> Lines<'t, 'a> {
         let drawer = self.drawer;
         let hw = stroke * 0.5;
         let len = points.len();
+
+        drawer.requests.reserve(len);
 
         let straight = |a: Vec2, b: Vec2| {
             let ab = b - a;

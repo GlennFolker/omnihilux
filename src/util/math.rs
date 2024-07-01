@@ -1,6 +1,6 @@
-use std::f32::consts::PI;
-
 use bevy::prelude::*;
+
+use crate::util::FloatExt;
 
 pub trait Interpolation<T, P> {
     fn interp(self, from: T, to: T, progress: P) -> T;
@@ -17,7 +17,7 @@ impl Interpolation<f32, f32> for Interp {
     fn interp(self, from: f32, to: f32, progress: f32) -> f32 {
         let progress = match self {
             Self::Linear => progress,
-            Self::PowIn(pow) => fastapprox::faster::pow(progress, pow as f32),
+            Self::PowIn(exp) => pow(progress, exp as f32),
         };
         from + (to - from) * progress
     }
@@ -50,24 +50,44 @@ pub fn curve(f: f32, from: f32, to: f32) -> f32 {
 
 #[inline]
 pub fn equal(a: f32, b: f32) -> bool {
-    equal_within(a, b, 0.0001)
+    within(a, b, 0.0001)
 }
 
 #[inline]
-pub fn equal_within(a: f32, b: f32, epsilon: f32) -> bool {
+pub fn within(a: f32, b: f32, epsilon: f32) -> bool {
     (a - b).abs() <= epsilon
 }
 
 #[inline]
 pub fn sin(rad: f32, scl: f32, mag: f32) -> f32 {
-    let rad = (rad * scl) % (PI * 2.0);
-    fastapprox::faster::sinfull(rad) * mag
+    fastapprox::faster::sin(mod_angle(rad * scl)) * mag
+}
+
+pub use fastapprox::faster::pow;
+
+#[inline]
+pub fn sqrt(f: f32) -> f32 {
+    pow(f, 0.5)
+}
+
+#[inline]
+pub fn mod_angle(angle: f32) -> f32 {
+    let mut angle = angle % f32::PI2 + f32::PI2;
+    if angle >= f32::PI2 {
+        angle -= f32::PI2;
+    }
+
+    if angle >= f32::PI {
+        angle -= f32::PI2;
+    }
+
+    angle
 }
 
 #[inline]
 pub fn vec_angle(angle: f32, x: f32, y: f32) -> Vec2 {
-    let angle = angle % (PI * 2.0);
-    let (cos, sin) = (fastapprox::faster::cosfull(angle), fastapprox::faster::sinfull(angle));
+    let angle = mod_angle(angle);
+    let (cos, sin) = (fastapprox::faster::cos(angle), fastapprox::faster::sin(angle));
 
     Vec2 {
         x: x * cos - y * sin,

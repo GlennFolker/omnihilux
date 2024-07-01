@@ -6,7 +6,7 @@ use crate::{
         Drawer,
     },
     shape::vertex::Request,
-    util::math::vec_angle,
+    util::math::{sqrt, vec_angle},
 };
 
 impl<'a> Drawer<'a> {
@@ -67,7 +67,7 @@ impl<'a> Drawer<'a> {
         let hw = width / 2.0;
         let mut dx = x2 - x;
         let mut dy = y2 - y;
-        let len = (dx * dx + dy * dy).sqrt();
+        let len = sqrt(dx * dx + dy * dy);
 
         dx = dx / len * hw;
         dy = dy / len * hw;
